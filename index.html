@@ -267,7 +267,10 @@
       <div id="host-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
     </div>
 
-    <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
+    <div class="row">
+      <button class="btn-ghost" onclick="leaveRoom()">Sair da sala</button>
+      <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
+    </div>
     <div id="yt-player"></div>
   </div>
 
@@ -334,12 +337,24 @@ function showView(id){
   document.getElementById(id).classList.add('active');
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   if(!getBucketId()){
     showView('view-setup');
-  }else{
-    showView('view-landing');
+    return;
   }
+  const savedHostRoom = localStorage.getItem('toca_ai_host_room');
+  if(savedHostRoom){
+    const room = await loadRoom(savedHostRoom);
+    if(room){
+      currentRoomCode = savedHostRoom;
+      isHost = true;
+      enterHostView();
+      return;
+    }else{
+      localStorage.removeItem('toca_ai_host_room');
+    }
+  }
+  showView('view-landing');
 });
 
 /* ---------- SETUP (criação do bucket no KVdb) ---------- */
@@ -468,6 +483,7 @@ async function createRoom(){
   if(!ok){ alert('Não foi possível criar a sala. Confira sua conexão e tente de novo.'); return; }
   currentRoomCode = code;
   isHost = true;
+  localStorage.setItem('toca_ai_host_room', code);
   enterHostView();
 }
 
@@ -482,6 +498,7 @@ async function resumeRoom(){
   if(!room){ errorEl.textContent = 'Sala não encontrada. Confira o código.'; return; }
   currentRoomCode = code;
   isHost = true;
+  localStorage.setItem('toca_ai_host_room', code);
   enterHostView();
 }
 
@@ -607,10 +624,20 @@ async function togglePlayPause(){
   renderNowPlaying(updated);
 }
 
+function leaveRoom(){
+  if(!confirm('Sair da sala neste dispositivo? A sala continua ativa e você pode retomar depois com o código.')) return;
+  if(hostPollInterval) clearInterval(hostPollInterval);
+  localStorage.removeItem('toca_ai_host_room');
+  currentRoomCode = null;
+  isHost = false;
+  showView('view-landing');
+}
+
 async function endRoom(){
   if(!confirm('Encerrar a sala? Os convidados não vão mais conseguir pedir músicas.')) return;
   if(hostPollInterval) clearInterval(hostPollInterval);
   await kvDelete('room:' + currentRoomCode);
+  localStorage.removeItem('toca_ai_host_room');
   currentRoomCode = null;
   isHost = false;
   showView('view-landing');
