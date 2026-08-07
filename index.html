@@ -311,7 +311,7 @@
    (Realtime Database). Só precisa fazer isso uma vez.
    Ex: const DB_URL = 'https://seu-projeto-default-rtdb.firebaseio.com';
    ============================================================ */
-const DB_URL = 'https://toca-ai-94ba9-default-rtdb.firebaseio.com/';
+const DB_URL = '';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -354,9 +354,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 /* ---------- Firebase Realtime Database helpers ---------- */
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 7000){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { ...options, signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function loadRoom(code){
   try{
-    const res = await fetch(`${DB_URL}/rooms/${code}.json`);
+    const res = await fetchWithTimeout(`${DB_URL}/rooms/${code}.json`);
     if(!res.ok){
       lastKvError = `status ${res.status}`;
       console.error('loadRoom falhou', lastKvError);
@@ -373,7 +383,7 @@ async function loadRoom(code){
 
 async function saveRoom(code, data){
   try{
-    const res = await fetch(`${DB_URL}/rooms/${code}.json`, {
+    const res = await fetchWithTimeout(`${DB_URL}/rooms/${code}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -423,7 +433,7 @@ function extractVideoId(url){
 
 async function fetchTitle(videoId){
   try{
-    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    const res = await fetchWithTimeout(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`, {}, 5000);
     if(res.ok){
       const data = await res.json();
       if(data && data.title) return data.title;
@@ -663,30 +673,33 @@ async function submitSong(){
   btn.disabled = true;
   btn.textContent = 'Enviando...';
 
-  const title = await fetchTitle(videoId);
+  try{
+    const title = await fetchTitle(videoId);
 
-  const room = await loadRoom(currentRoomCode);
-  if(!room){
-    errorEl.textContent = 'A sala não existe mais.';
+    const room = await loadRoom(currentRoomCode);
+    if(!room){
+      errorEl.textContent = 'A sala não existe mais.';
+      return;
+    }
+    const newItem = { videoId, title, requester: name, addedAt: Date.now() };
+    const updated = { ...room, queue: [...room.queue, newItem] };
+    const ok = await saveRoom(currentRoomCode, updated);
+
+    if(!ok){
+      errorEl.textContent = 'Não deu para enviar agora (' + lastKvError + '). Tente de novo.';
+      return;
+    }
+    linkInput.value = '';
+    successEl.style.display = 'block';
+    renderGuestQueue(updated);
+    setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+  }catch(e){
+    errorEl.textContent = 'Algo deu errado ao enviar. Tente de novo.';
+    console.error('submitSong falhou', e);
+  }finally{
     btn.disabled = false;
     btn.textContent = 'Enviar para a fila';
-    return;
   }
-  const newItem = { videoId, title, requester: name, addedAt: Date.now() };
-  const updated = { ...room, queue: [...room.queue, newItem] };
-  const ok = await saveRoom(currentRoomCode, updated);
-
-  btn.disabled = false;
-  btn.textContent = 'Enviar para a fila';
-
-  if(!ok){
-    errorEl.textContent = 'Não deu para enviar agora. Tente de novo.';
-    return;
-  }
-  linkInput.value = '';
-  successEl.style.display = 'block';
-  renderGuestQueue(updated);
-  setTimeout(() => { successEl.style.display = 'none'; }, 3000);
 }
 </script>
 </body>
