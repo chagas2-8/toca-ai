@@ -294,7 +294,7 @@
       <input type="text" id="guest-link-input" placeholder="Cole o link aqui">
       <div class="error-msg" id="guest-error"></div>
       <div class="success-msg" id="guest-success" style="display:none;">Música adicionada à fila! 🎶</div>
-      <button class="btn-primary" onclick="submitSong()">Enviar para a fila</button>
+      <button class="btn-primary" onclick="submitSong(event)">Enviar para a fila</button>
     </div>
 
     <div class="card">
@@ -311,7 +311,7 @@
    (Realtime Database). Só precisa fazer isso uma vez.
    Ex: const DB_URL = 'https://seu-projeto-default-rtdb.firebaseio.com';
    ============================================================ */
-const DB_URL = 'https://toca-ai-94ba9-default-rtdb.firebaseio.com/';
+const DB_URL = '';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -373,6 +373,8 @@ async function loadRoom(code){
       return null;
     }
     const data = await res.json();
+    if(!data) return null;
+    if(!Array.isArray(data.queue)) data.queue = [];
     return data;
   }catch(e){
     lastKvError = 'erro de rede: ' + e.message;
@@ -653,7 +655,7 @@ async function joinRoom(){
   }, 4000);
 }
 
-async function submitSong(){
+async function submitSong(evt){
   const nameInput = document.getElementById('guest-name-input');
   const linkInput = document.getElementById('guest-link-input');
   const errorEl = document.getElementById('guest-error');
@@ -669,11 +671,11 @@ async function submitSong(){
   const videoId = extractVideoId(url);
   if(!videoId){ errorEl.textContent = 'Não reconheci esse link. Use um link do YouTube ou YouTube Music.'; return; }
 
-  const btn = event.target;
+  const btn = (evt && evt.currentTarget) || document.querySelector('#view-guest-form .btn-primary');
   btn.disabled = true;
   btn.textContent = 'Enviando...';
 
-  try{
+  const work = (async () => {
     const title = await fetchTitle(videoId);
 
     const room = await loadRoom(currentRoomCode);
@@ -693,8 +695,19 @@ async function submitSong(){
     successEl.style.display = 'block';
     renderGuestQueue(updated);
     setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+  })();
+
+  const safetyTimeout = new Promise((resolve) => {
+    setTimeout(() => {
+      errorEl.textContent = 'Demorou demais para responder. Verifique sua conexão e tente de novo.';
+      resolve();
+    }, 12000);
+  });
+
+  try{
+    await Promise.race([work, safetyTimeout]);
   }catch(e){
-    errorEl.textContent = 'Algo deu errado ao enviar. Tente de novo.';
+    errorEl.textContent = 'Erro: ' + (e && e.message ? e.message : String(e));
     console.error('submitSong falhou', e);
   }finally{
     btn.disabled = false;
