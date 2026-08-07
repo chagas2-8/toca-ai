@@ -180,22 +180,16 @@
 <body>
 <div id="app">
 
-  <!-- SETUP (só aparece se BUCKET_ID ainda não foi configurado) -->
+  <!-- SETUP (só aparece se DB_URL ainda não foi configurada) -->
   <div class="view" id="view-setup">
     <p class="eyebrow">configuração inicial</p>
-    <h1 class="display" style="font-size:26px;">Antes de usar, crie o banco de dados</h1>
-    <p class="sub">Isso só precisa ser feito uma vez, por você, antes de publicar o site. Depois de configurado, os convidados nunca vão ver esta tela — eles só verão o código da sala, o nome e o link da música.</p>
+    <h1 class="display" style="font-size:26px;">Falta configurar o banco de dados</h1>
+    <p class="sub">Isso é feito uma vez só, editando o arquivo, antes de publicar. Os convidados nunca vão ver esta tela.</p>
     <div class="card">
-      <label>Seu e-mail (exigido pelo serviço KVdb, só para identificar o banco — não recebe spam)</label>
-      <input type="email" id="setup-email-input" placeholder="voce@exemplo.com">
-      <div class="error-msg" id="setup-error"></div>
-      <button class="btn-primary" onclick="setupBucket()">Criar banco de dados</button>
-    </div>
-    <div class="card" id="setup-result" style="display:none;">
-      <p class="eyebrow" style="margin-bottom:10px;">deu certo! copie este código</p>
-      <div class="id-box" id="setup-bucket-id"></div>
-      <p class="sub" style="margin-bottom:14px;">Abra o arquivo <code class="inline">index.html</code>, ache a linha <code class="inline">const BUCKET_ID = '';</code> perto do início do script, cole o código entre as aspas, salve e suba de novo pro GitHub. Isso garante que todo mundo (você e os convidados) usa o mesmo banco.</p>
-      <button class="btn-cyan" onclick="setupContinue()">Já copiei, continuar testando</button>
+      <p class="eyebrow" style="margin-bottom:10px;">passo a passo</p>
+      <p class="sub" style="margin-bottom:10px;">1. Crie um banco gratuito no Firebase (console.firebase.google.com), com o Realtime Database ativado.</p>
+      <p class="sub" style="margin-bottom:10px;">2. Copie a "Database URL" (algo como <code class="inline">https://seu-projeto-default-rtdb.firebaseio.com</code>).</p>
+      <p class="sub" style="margin-bottom:0;">3. Abra o arquivo <code class="inline">index.html</code>, ache a linha <code class="inline">const DB_URL = '';</code> perto do início do script, cole a URL entre as aspas, salve e suba de novo pro GitHub.</p>
     </div>
   </div>
 
@@ -313,12 +307,12 @@
 
 <script>
 /* ============================================================
-   CONFIGURAÇÃO: cole aqui o ID do bucket depois de criá-lo
-   na tela de configuração inicial (só precisa fazer 1 vez).
+   CONFIGURAÇÃO: cole aqui a Database URL do seu projeto Firebase
+   (Realtime Database). Só precisa fazer isso uma vez.
+   Ex: const DB_URL = 'https://seu-projeto-default-rtdb.firebaseio.com';
    ============================================================ */
-const BUCKET_ID = 'L3e4ZqzGgYY5zk942XWbHa';
+const DB_URL = '';
 
-const KV_BASE = 'https://kvdb.io';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 let currentRoomCode = null;
@@ -327,9 +321,10 @@ let hostPollInterval = null;
 let guestPollInterval = null;
 let ytPlayer = null;
 let ytReady = false;
+let lastKvError = '';
 
-function getBucketId(){
-  return BUCKET_ID || localStorage.getItem('toca_ai_bucket_id') || '';
+function isConfigured(){
+  return !!DB_URL;
 }
 
 function showView(id){
@@ -338,7 +333,7 @@ function showView(id){
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  if(!getBucketId()){
+  if(!isConfigured()){
     showView('view-setup');
     return;
   }
@@ -357,97 +352,50 @@ window.addEventListener('DOMContentLoaded', async () => {
   showView('view-landing');
 });
 
-/* ---------- SETUP (criação do bucket no KVdb) ---------- */
+/* ---------- Firebase Realtime Database helpers ---------- */
 
-async function setupBucket(){
-  const emailInput = document.getElementById('setup-email-input');
-  const errorEl = document.getElementById('setup-error');
-  errorEl.textContent = '';
-  const email = emailInput.value.trim();
-  if(!email){ errorEl.textContent = 'Digite um e-mail.'; return; }
-
+async function loadRoom(code){
   try{
-    const res = await fetch(KV_BASE + '/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'email=' + encodeURIComponent(email)
-    });
-    if(!res.ok) throw new Error('fail');
-    const bucketId = (await res.text()).trim();
-    localStorage.setItem('toca_ai_bucket_id', bucketId);
-    document.getElementById('setup-bucket-id').textContent = bucketId;
-    document.getElementById('setup-result').style.display = 'block';
-  }catch(e){
-    errorEl.textContent = 'Não consegui criar o banco agora. Confira sua conexão e tente de novo.';
-  }
-}
-
-function setupContinue(){
-  showView('view-landing');
-}
-
-/* ---------- KVdb helpers ---------- */
-
-let lastKvError = '';
-
-async function kvGet(key){
-  const bucket = getBucketId();
-  if(!bucket) return null;
-  try{
-    const res = await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`);
-    if(res.status === 404) return null;
+    const res = await fetch(`${DB_URL}/rooms/${code}.json`);
     if(!res.ok){
       lastKvError = `status ${res.status}`;
-      try{ lastKvError += ': ' + (await res.text()); }catch(e){}
-      console.error('kvGet falhou', lastKvError);
+      console.error('loadRoom falhou', lastKvError);
       return null;
     }
-    return await res.text();
+    const data = await res.json();
+    return data;
   }catch(e){
-    lastKvError = 'erro de rede/CORS: ' + e.message;
-    console.error('kvGet falhou', e);
+    lastKvError = 'erro de rede: ' + e.message;
+    console.error('loadRoom falhou', e);
     return null;
   }
 }
 
-async function kvSet(key, value){
-  const bucket = getBucketId();
-  if(!bucket) return false;
+async function saveRoom(code, data){
   try{
-    const res = await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`, {
-      method: 'POST',
-      body: value
+    const res = await fetch(`${DB_URL}/rooms/${code}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
     if(!res.ok){
       lastKvError = `status ${res.status}`;
       try{ lastKvError += ': ' + (await res.text()); }catch(e){}
-      console.error('kvSet falhou', lastKvError);
+      console.error('saveRoom falhou', lastKvError);
       return false;
     }
     return true;
   }catch(e){
-    lastKvError = 'erro de rede/CORS: ' + e.message;
-    console.error('kvSet falhou', e);
+    lastKvError = 'erro de rede: ' + e.message;
+    console.error('saveRoom falhou', e);
     return false;
   }
 }
 
-async function kvDelete(key){
-  const bucket = getBucketId();
-  if(!bucket) return;
+async function deleteRoom(code){
   try{
-    await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    await fetch(`${DB_URL}/rooms/${code}.json`, { method: 'DELETE' });
   }catch(e){}
-}
-
-async function loadRoom(code){
-  const text = await kvGet('room:' + code);
-  if(!text) return null;
-  try{ return JSON.parse(text); }catch(e){ return null; }
-}
-
-async function saveRoom(code, data){
-  return await kvSet('room:' + code, JSON.stringify(data));
 }
 
 /* ---------- utils ---------- */
@@ -493,7 +441,7 @@ function escapeHtml(str){
 /* ---------- HOST ---------- */
 
 async function createRoom(){
-  if(!getBucketId()){ showView('view-setup'); return; }
+  if(!isConfigured()){ showView('view-setup'); return; }
   const code = genCode();
   const room = { code, createdAt: Date.now(), queue: [], current: null, isPlaying: false };
   const ok = await saveRoom(code, room);
@@ -505,7 +453,7 @@ async function createRoom(){
 }
 
 async function resumeRoom(){
-  if(!getBucketId()){ showView('view-setup'); return; }
+  if(!isConfigured()){ showView('view-setup'); return; }
   const input = document.getElementById('resume-code-input');
   const code = input.value.trim().toUpperCase();
   const errorEl = document.getElementById('resume-error');
@@ -653,7 +601,7 @@ function leaveRoom(){
 async function endRoom(){
   if(!confirm('Encerrar a sala? Os convidados não vão mais conseguir pedir músicas.')) return;
   if(hostPollInterval) clearInterval(hostPollInterval);
-  await kvDelete('room:' + currentRoomCode);
+  await deleteRoom(currentRoomCode);
   localStorage.removeItem('toca_ai_host_room');
   currentRoomCode = null;
   isHost = false;
@@ -675,7 +623,7 @@ function onYouTubeIframeAPIReady(){
 /* ---------- GUEST ---------- */
 
 async function joinRoom(){
-  if(!getBucketId()){ showView('view-setup'); return; }
+  if(!isConfigured()){ showView('view-setup'); return; }
   const input = document.getElementById('join-code-input');
   const code = input.value.trim().toUpperCase();
   const errorEl = document.getElementById('join-error');
