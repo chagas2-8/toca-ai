@@ -175,6 +175,53 @@
     background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;
     padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:13px;
   }
+
+  /* barra de progresso */
+  .seek-row{display:flex;align-items:center;gap:10px;margin:2px 0 16px;}
+  .seek-row .mono{font-size:11.5px;color:var(--muted);flex-shrink:0;width:34px;}
+  .seek-row .mono.time-duration{text-align:right;}
+  input[type=range].seek-bar{
+    flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;
+    background:var(--bg-alt);outline:none;cursor:pointer;
+  }
+  input[type=range].seek-bar::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--pink);cursor:pointer;border:2px solid #1a0f14;
+  }
+  input[type=range].seek-bar::-moz-range-thumb{
+    width:15px;height:15px;border-radius:50%;background:var(--pink);border:2px solid #1a0f14;cursor:pointer;
+  }
+
+  /* modo TV */
+  .yt-player-wrap{
+    width:1px;height:1px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;
+  }
+  body.tv-active .yt-player-wrap{
+    position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;z-index:40;background:#000;overflow:visible;
+  }
+  body.tv-active .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
+  body.tv-active .host-panel-normal{ display:none !important; }
+  #tv-overlay{ display:none; }
+  body.tv-active #tv-overlay{ display:block; }
+  .tv-corner{
+    position:fixed;top:20px;right:20px;z-index:41;
+    background:rgba(18,15,29,0.88);backdrop-filter:blur(10px);
+    border:1px solid var(--border);border-radius:16px;padding:16px 18px;
+    width:230px;max-height:56vh;overflow-y:auto;
+  }
+  .tv-queue-item{padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:baseline;}
+  .tv-queue-item:last-child{border-bottom:none;}
+  .tv-controls{
+    position:fixed;left:0;right:0;bottom:0;z-index:41;
+    background:linear-gradient(to top, rgba(0,0,0,0.88), transparent);
+    padding:26px 20px 16px;
+  }
+  .tv-controls .seek-row{margin-bottom:12px;}
+  .tv-controls .row{max-width:340px;}
+  .tv-exit-btn{
+    position:fixed;top:20px;left:20px;z-index:42;width:auto;padding:9px 14px;
+    background:rgba(18,15,29,0.88);backdrop-filter:blur(10px);
+  }
 </style>
 </head>
 <body>
@@ -205,8 +252,6 @@
       <p class="eyebrow" style="margin-bottom:10px;">sou o anfitrião</p>
       <p class="sub" style="margin-bottom:16px;">Este dispositivo vai tocar as músicas e controlar a fila.</p>
       <button class="btn-primary" onclick="createRoom()">Criar sala nova</button>
-      <div style="height:8px;"></div>
-      <button class="btn-ghost" onclick="showView('view-resume')">Já tenho um código de sala</button>
     </div>
 
     <div class="card">
@@ -214,16 +259,20 @@
       <p class="sub" style="margin-bottom:16px;">Peça uma música para tocar no som da festa.</p>
       <button class="btn-cyan" onclick="showView('view-guest-join')">Pedir uma música</button>
     </div>
+
+    <p onclick="showView('view-resume')" style="text-align:center;font-size:11px;color:var(--border);margin-top:26px;cursor:pointer;user-select:none;">·</p>
   </div>
 
   <!-- RESUME HOST SESSION -->
   <div class="view" id="view-resume">
     <p class="back"><span class="link-btn" onclick="showView('view-landing')">‹ voltar</span></p>
-    <p class="eyebrow">retomar sala</p>
-    <h1 class="display" style="font-size:26px;">Digite o código da sua sala</h1>
+    <p class="eyebrow">acesso de anfitrião</p>
+    <h1 class="display" style="font-size:26px;">Retomar sala em outro dispositivo</h1>
     <div class="card">
       <label>Código da sala</label>
       <input type="text" class="code-input" id="resume-code-input" maxlength="6" placeholder="ABC123">
+      <label>Chave de anfitrião</label>
+      <input type="text" class="mono" id="resume-hostkey-input" placeholder="Cole a chave de anfitrião">
       <div class="error-msg" id="resume-error"></div>
       <button class="btn-primary" onclick="resumeRoom()">Entrar como anfitrião</button>
     </div>
@@ -234,38 +283,88 @@
     <span class="status-pill"><span class="dot live"></span> sala ativa</span>
     <h1 class="display" style="font-size:24px;">Painel do anfitrião</h1>
 
-    <div class="card" style="text-align:center;">
-      <p class="eyebrow">código para os convidados</p>
-      <div class="code-display" id="host-code-display">------</div>
-      <div class="row" style="margin-bottom:4px;">
-        <button class="btn-ghost" onclick="copyCode()">Copiar código</button>
-        <button class="btn-ghost" onclick="copyLink()">Copiar link</button>
+    <div class="host-panel-normal">
+      <div class="card" style="text-align:center;">
+        <p class="eyebrow">código para os convidados</p>
+        <div class="code-display" id="host-code-display">------</div>
+        <div class="row" style="margin-bottom:4px;">
+          <button class="btn-ghost" onclick="copyCode()">Copiar código</button>
+          <button class="btn-ghost" onclick="copyLink()">Copiar link</button>
+        </div>
+        <div id="host-qr-box" class="qr-box" style="display:none;"></div>
+        <p class="qr-note">Escaneie o QR ou entre no link do site e digite o código.</p>
       </div>
-      <div id="host-qr-box" class="qr-box" style="display:none;"></div>
-      <p class="qr-note">Escaneie o QR ou entre no link do site e digite o código.</p>
-    </div>
 
-    <div class="card">
-      <div class="vinyl-wrap"><div class="vinyl" id="host-vinyl"><div class="vinyl-label"></div></div></div>
-      <div class="now-playing" id="host-now-playing">
-        <p class="empty">Nenhuma música tocando ainda</p>
+      <div class="card">
+        <div class="vinyl-wrap"><div class="vinyl" id="host-vinyl"><div class="vinyl-label"></div></div></div>
+        <div class="now-playing" id="host-now-playing">
+          <p class="empty">Nenhuma música tocando ainda</p>
+        </div>
+
+        <div class="seek-row">
+          <span class="mono time-current">0:00</span>
+          <input type="range" class="seek-bar" min="0" max="100" value="0"
+                 onmousedown="onSeekStart()" ontouchstart="onSeekStart()"
+                 onchange="onSeekCommit(event)">
+          <span class="mono time-duration">0:00</span>
+        </div>
+
+        <div class="row">
+          <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
+          <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
+        </div>
+        <div style="height:8px;"></div>
+        <button class="btn-cyan" onclick="enterTvMode()">Modo TV ▸</button>
       </div>
+
+      <div class="card">
+        <p class="eyebrow" style="margin-bottom:12px;">próximas na fila</p>
+        <div id="host-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow" style="margin-bottom:10px;">transferir para outro dispositivo</p>
+        <p class="sub" style="margin-bottom:12px;">Só mostre isso se quiser que outro aparelho vire o painel de controle desta sala.</p>
+        <button class="btn-ghost" onclick="toggleHostKeyReveal()" id="reveal-hostkey-btn">Mostrar chave de anfitrião</button>
+        <div id="hostkey-box" style="display:none;margin-top:12px;">
+          <div class="id-box mono" id="hostkey-display" style="font-size:14px;"></div>
+          <button class="btn-ghost" onclick="copyHostKey()" style="margin-top:8px;">Copiar chave</button>
+        </div>
+      </div>
+
       <div class="row">
-        <button class="btn-secondary" id="btn-playpause" onclick="togglePlayPause()">Pausar</button>
-        <button class="btn-primary" onclick="skipSong()">Pular ▸</button>
+        <button class="btn-ghost" onclick="leaveRoom()">Sair da sala</button>
+        <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
       </div>
     </div>
 
-    <div class="card">
-      <p class="eyebrow" style="margin-bottom:12px;">próximas na fila</p>
-      <div id="host-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
-    </div>
+    <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
 
-    <div class="row">
-      <button class="btn-ghost" onclick="leaveRoom()">Sair da sala</button>
-      <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
+    <!-- MODO TV: sobreposição com código, fila resumida e controles -->
+    <div id="tv-overlay">
+      <button class="tv-exit-btn btn-ghost" onclick="exitTvMode()">✕ Sair do Modo TV</button>
+      <div class="tv-corner">
+        <p class="eyebrow" style="margin-bottom:6px;">peça sua música</p>
+        <p class="sub" style="margin-bottom:10px;font-size:13px;">Acesse este link e digite o código:</p>
+        <div class="code-display" id="tv-code-display" style="font-size:26px;margin-bottom:10px;">------</div>
+        <p class="eyebrow" style="margin-bottom:8px;">próximas</p>
+        <div id="tv-queue-list"></div>
+      </div>
+      <div class="tv-controls">
+        <p class="mono" id="tv-now-playing" style="font-size:13px;color:var(--muted);margin:0 0 6px;">—</p>
+        <div class="seek-row">
+          <span class="mono time-current">0:00</span>
+          <input type="range" class="seek-bar" min="0" max="100" value="0"
+                 onmousedown="onSeekStart()" ontouchstart="onSeekStart()"
+                 onchange="onSeekCommit(event)">
+          <span class="mono time-duration">0:00</span>
+        </div>
+        <div class="row">
+          <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
+          <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
+        </div>
+      </div>
     </div>
-    <div id="yt-player"></div>
   </div>
 
   <!-- GUEST: JOIN -->
@@ -338,15 +437,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   const savedHostRoom = localStorage.getItem('toca_ai_host_room');
-  if(savedHostRoom){
+  const savedHostKey = localStorage.getItem('toca_ai_host_key');
+  if(savedHostRoom && savedHostKey){
     const room = await loadRoom(savedHostRoom);
-    if(room){
+    if(room && room.hostKey === savedHostKey){
       currentRoomCode = savedHostRoom;
       isHost = true;
       enterHostView();
       return;
     }else{
       localStorage.removeItem('toca_ai_host_room');
+      localStorage.removeItem('toca_ai_host_key');
     }
   }
   showView('view-landing');
@@ -418,6 +519,13 @@ function genCode(){
   return c;
 }
 
+function genHostKey(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let k = '';
+  for(let i=0;i<18;i++) k += chars[Math.floor(Math.random()*chars.length)];
+  return k;
+}
+
 function extractVideoId(url){
   if(!url) return null;
   const patterns = [
@@ -455,37 +563,46 @@ function escapeHtml(str){
 async function createRoom(){
   if(!isConfigured()){ showView('view-setup'); return; }
   const code = genCode();
-  const room = { code, createdAt: Date.now(), queue: [], current: null, isPlaying: false };
+  const hostKey = genHostKey();
+  const room = { code, hostKey, createdAt: Date.now(), queue: [], current: null, isPlaying: false };
   const ok = await saveRoom(code, room);
   if(!ok){ alert('Não foi possível criar a sala.\n\nDetalhe técnico: ' + lastKvError + '\n\nMe conta esse detalhe no chat pra eu te ajudar a resolver.'); return; }
   currentRoomCode = code;
   isHost = true;
   localStorage.setItem('toca_ai_host_room', code);
+  localStorage.setItem('toca_ai_host_key', hostKey);
   enterHostView();
 }
 
 async function resumeRoom(){
   if(!isConfigured()){ showView('view-setup'); return; }
-  const input = document.getElementById('resume-code-input');
-  const code = input.value.trim().toUpperCase();
+  const codeInput = document.getElementById('resume-code-input');
+  const keyInput = document.getElementById('resume-hostkey-input');
+  const code = codeInput.value.trim().toUpperCase();
+  const hostKey = keyInput.value.trim();
   const errorEl = document.getElementById('resume-error');
   errorEl.textContent = '';
   if(!code){ errorEl.textContent = 'Digite um código.'; return; }
+  if(!hostKey){ errorEl.textContent = 'Digite a chave de anfitrião.'; return; }
   const room = await loadRoom(code);
   if(!room){ errorEl.textContent = 'Sala não encontrada. Confira o código.'; return; }
+  if(room.hostKey !== hostKey){ errorEl.textContent = 'Chave de anfitrião incorreta.'; return; }
   currentRoomCode = code;
   isHost = true;
   localStorage.setItem('toca_ai_host_room', code);
+  localStorage.setItem('toca_ai_host_key', hostKey);
   enterHostView();
 }
 
 function enterHostView(){
   document.getElementById('host-code-display').textContent = currentRoomCode;
+  document.getElementById('tv-code-display').textContent = currentRoomCode;
   renderQR();
   showView('view-host');
   refreshHostState();
   if(hostPollInterval) clearInterval(hostPollInterval);
   hostPollInterval = setInterval(refreshHostState, 4000);
+  startProgressLoop();
 }
 
 function renderQR(){
@@ -504,11 +621,90 @@ function renderQR(){
 function copyCode(){ navigator.clipboard.writeText(currentRoomCode).catch(()=>{}); }
 function copyLink(){ navigator.clipboard.writeText(window.location.href).catch(()=>{}); }
 
+function toggleHostKeyReveal(){
+  const box = document.getElementById('hostkey-box');
+  const btn = document.getElementById('reveal-hostkey-btn');
+  const showing = box.style.display === 'block';
+  if(showing){
+    box.style.display = 'none';
+    btn.textContent = 'Mostrar chave de anfitrião';
+  }else{
+    document.getElementById('hostkey-display').textContent = localStorage.getItem('toca_ai_host_key') || '';
+    box.style.display = 'block';
+    btn.textContent = 'Esconder chave de anfitrião';
+  }
+}
+
+function copyHostKey(){
+  const key = localStorage.getItem('toca_ai_host_key') || '';
+  navigator.clipboard.writeText(key).catch(()=>{});
+}
+
+/* ---------- Modo TV ---------- */
+
+function enterTvMode(){
+  document.body.classList.add('tv-active');
+  if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function exitTvMode(){
+  document.body.classList.remove('tv-active');
+  if(document.fullscreenElement && document.exitFullscreen){
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+/* ---------- barra de progresso (seek) ---------- */
+
+let progressInterval = null;
+let isSeekingUI = false;
+
+function startProgressLoop(){
+  if(progressInterval) return;
+  progressInterval = setInterval(updateProgressUI, 1000);
+}
+
+function formatTime(s){
+  s = Math.max(0, Math.floor(s || 0));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+function updateProgressUI(){
+  if(!ytPlayer || !ytReady || isSeekingUI) return;
+  try{
+    const dur = ytPlayer.getDuration() || 0;
+    const cur = ytPlayer.getCurrentTime() || 0;
+    document.querySelectorAll('.seek-bar').forEach(bar => {
+      bar.max = dur;
+      bar.value = cur;
+    });
+    document.querySelectorAll('.time-current').forEach(el => el.textContent = formatTime(cur));
+    document.querySelectorAll('.time-duration').forEach(el => el.textContent = formatTime(dur));
+  }catch(e){}
+}
+
+function onSeekStart(){
+  isSeekingUI = true;
+}
+
+function onSeekCommit(evt){
+  isSeekingUI = false;
+  const val = Number(evt.target.value);
+  if(ytPlayer && ytReady){
+    ytPlayer.seekTo(val, true);
+  }
+}
+
 async function refreshHostState(){
   if(!currentRoomCode) return;
   const room = await loadRoom(currentRoomCode);
   if(!room) return;
   renderHostQueue(room);
+  renderTvQueue(room);
   renderNowPlaying(room);
   if(!room.current && room.queue.length > 0 && ytReady){
     await playNext();
@@ -528,6 +724,21 @@ function renderHostQueue(room){
         <div class="t">${escapeHtml(item.title)}</div>
         <div class="r">pedido por ${escapeHtml(item.requester)}</div>
       </div>
+    </div>
+  `).join('');
+}
+
+function renderTvQueue(room){
+  const list = document.getElementById('tv-queue-list');
+  const items = room.queue.slice(0, 4);
+  if(!items.length){
+    list.innerHTML = '<p class="sub" style="margin:0;font-size:12.5px;">Fila vazia — peça a primeira!</p>';
+    return;
+  }
+  list.innerHTML = items.map((item, i) => `
+    <div class="tv-queue-item">
+      <span class="mono" style="color:var(--muted);font-size:11px;">${i+1}</span>
+      <span style="font-size:12.5px;line-height:1.3;">${escapeHtml(item.title)}<br><span style="color:var(--muted);font-size:11px;">${escapeHtml(item.requester)}</span></span>
     </div>
   `).join('');
 }
@@ -562,14 +773,19 @@ function renderGuestQueue(room){
 function renderNowPlaying(room){
   const el = document.getElementById('host-now-playing');
   const vinyl = document.getElementById('host-vinyl');
+  const tvNow = document.getElementById('tv-now-playing');
   if(room.current){
     el.innerHTML = `<p class="title">${escapeHtml(room.current.title)}</p><p class="who">pedido por ${escapeHtml(room.current.requester)}</p>`;
     vinyl.classList.toggle('spinning', room.isPlaying);
+    tvNow.textContent = `${room.current.title} — pedido por ${room.current.requester}`;
   }else{
     el.innerHTML = '<p class="empty">Nenhuma música tocando ainda</p>';
     vinyl.classList.remove('spinning');
+    tvNow.textContent = 'Nenhuma música tocando ainda';
   }
-  document.getElementById('btn-playpause').textContent = room.isPlaying ? 'Pausar' : 'Retomar';
+  document.querySelectorAll('.playpause-btn').forEach(btn => {
+    btn.textContent = room.isPlaying ? 'Pausar' : 'Retomar';
+  });
 }
 
 async function playNext(){
@@ -604,7 +820,10 @@ async function togglePlayPause(){
 function leaveRoom(){
   if(!confirm('Sair da sala neste dispositivo? A sala continua ativa e você pode retomar depois com o código.')) return;
   if(hostPollInterval) clearInterval(hostPollInterval);
+  if(progressInterval) clearInterval(progressInterval);
+  exitTvMode();
   localStorage.removeItem('toca_ai_host_room');
+  localStorage.removeItem('toca_ai_host_key');
   currentRoomCode = null;
   isHost = false;
   showView('view-landing');
@@ -613,8 +832,11 @@ function leaveRoom(){
 async function endRoom(){
   if(!confirm('Encerrar a sala? Os convidados não vão mais conseguir pedir músicas.')) return;
   if(hostPollInterval) clearInterval(hostPollInterval);
+  if(progressInterval) clearInterval(progressInterval);
+  exitTvMode();
   await deleteRoom(currentRoomCode);
   localStorage.removeItem('toca_ai_host_room');
+  localStorage.removeItem('toca_ai_host_key');
   currentRoomCode = null;
   isHost = false;
   showView('view-landing');
