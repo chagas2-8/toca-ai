@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toca Aí — fila de músicas da festa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<style>
+  :root{
+    --bg:#120f1d;
+    --bg-alt:#1a1530;
+    --card:#221c38;
+    --card-2:#2a2245;
+    --pink:#ff3d81;
+    --cyan:#2be9c8;
+    --text:#f4f2fb;
+    --muted:#9b93b8;
+    --border:rgba(255,255,255,0.09);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% -10%, rgba(255,61,129,0.18), transparent 45%),
+      radial-gradient(circle at 100% 10%, rgba(43,233,200,0.14), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px 18px 60px;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  #app{max-width:520px;margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block;animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--cyan);
+    margin:0 0 6px;
+  }
+  h1.display{font-size:34px;line-height:1.05;margin:0 0 6px;font-weight:700;}
+  p.sub{color:var(--muted);font-size:14.5px;line-height:1.5;margin:0 0 28px;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:22px;
+    margin-bottom:16px;
+  }
+
+  button{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    border:none;
+    border-radius:12px;
+    padding:14px 18px;
+    cursor:pointer;
+    width:100%;
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  button:active{transform:scale(0.98);}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-primary{background:linear-gradient(135deg,var(--pink),#ff6fa5);color:#1a0f14;}
+  .btn-secondary{background:var(--card-2);color:var(--text);border:1px solid var(--border);}
+  .btn-cyan{background:var(--cyan);color:#08211d;}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);font-weight:600;font-size:13px;padding:10px;}
+  .btn-danger{background:transparent;color:var(--pink);border:1px solid rgba(255,61,129,0.4);font-weight:600;font-size:13px;padding:10px;}
+  .row{display:flex;gap:10px;}
+  .row button{flex:1;}
+  .link-btn{
+    background:none;border:none;color:var(--cyan);font-family:'IBM Plex Mono',monospace;
+    font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0;
+  }
+
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 6px;}
+  input[type=text],input[type=email]{
+    width:100%;
+    background:var(--bg-alt);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:13px 14px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    margin-bottom:16px;
+  }
+  input:focus{outline:2px solid var(--cyan);outline-offset:1px;}
+  input.code-input{
+    font-family:'IBM Plex Mono',monospace;
+    letter-spacing:.3em;
+    text-align:center;
+    text-transform:uppercase;
+    font-size:22px;
+  }
+
+  .vinyl-wrap{display:flex;justify-content:center;margin:6px 0 18px;}
+  .vinyl{
+    width:150px;height:150px;border-radius:50%;
+    background:repeating-radial-gradient(circle at 50% 50%, #0c0a15 0 2px, #171227 2px 4px);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    animation:spin 4s linear infinite;
+    animation-play-state:paused;
+    flex-shrink:0;
+  }
+  .vinyl.spinning{animation-play-state:running;}
+  .vinyl-label{
+    width:56px;height:56px;border-radius:50%;
+    background:linear-gradient(135deg,var(--pink),var(--cyan));
+    display:flex;align-items:center;justify-content:center;
+  }
+  .vinyl-label::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--bg);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion: reduce){ .vinyl{animation:none;} }
+
+  .now-playing{text-align:center;margin-bottom:20px;}
+  .now-playing .title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;margin:0 0 2px;}
+  .now-playing .who{color:var(--muted);font-size:13px;}
+  .now-playing .empty{color:var(--muted);font-size:14px;}
+
+  #yt-player{width:1px;height:1px;overflow:hidden;position:absolute;left:-9999px;}
+
+  .code-display{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:38px;
+    font-weight:600;
+    letter-spacing:.18em;
+    text-align:center;
+    color:var(--cyan);
+    margin:4px 0 14px;
+  }
+  .qr-box{display:flex;justify-content:center;margin:6px 0 14px;background:#fff;border-radius:14px;padding:14px;}
+  .qr-note{color:var(--muted);font-size:12px;text-align:center;margin:-4px 0 16px;line-height:1.5;}
+
+  .queue-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--border);
+    gap:10px;
+  }
+  .queue-item:last-child{border-bottom:none;}
+  .queue-num{font-family:'IBM Plex Mono',monospace;color:var(--muted);font-size:13px;width:20px;flex-shrink:0;}
+  .queue-info{flex:1;min-width:0;}
+  .queue-info .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .queue-info .r{color:var(--muted);font-size:12px;}
+  .empty-queue{color:var(--muted);font-size:13.5px;text-align:center;padding:14px 0;}
+
+  .status-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    color:var(--muted);margin-bottom:18px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+  .dot.live{background:var(--cyan);box-shadow:0 0 0 3px rgba(43,233,200,0.18);}
+
+  .error-msg{color:var(--pink);font-size:13px;margin:-8px 0 14px;min-height:16px;}
+  .success-msg{color:var(--cyan);font-size:13.5px;text-align:center;margin:0 0 16px;}
+  .back{margin-bottom:18px;}
+  .id-box{
+    font-family:'IBM Plex Mono',monospace;font-size:15px;background:var(--bg-alt);
+    border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;
+    word-break:break-all;color:var(--cyan);
+  }
+  code.inline{
+    background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;
+    padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:13px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SETUP (só aparece se BUCKET_ID ainda não foi configurado) -->
+  <div class="view" id="view-setup">
+    <p class="eyebrow">configuração inicial</p>
+    <h1 class="display" style="font-size:26px;">Antes de usar, crie o banco de dados</h1>
+    <p class="sub">Isso só precisa ser feito uma vez, por você, antes de publicar o site. Depois de configurado, os convidados nunca vão ver esta tela — eles só verão o código da sala, o nome e o link da música.</p>
+    <div class="card">
+      <label>Seu e-mail (exigido pelo serviço KVdb, só para identificar o banco — não recebe spam)</label>
+      <input type="email" id="setup-email-input" placeholder="voce@exemplo.com">
+      <div class="error-msg" id="setup-error"></div>
+      <button class="btn-primary" onclick="setupBucket()">Criar banco de dados</button>
+    </div>
+    <div class="card" id="setup-result" style="display:none;">
+      <p class="eyebrow" style="margin-bottom:10px;">deu certo! copie este código</p>
+      <div class="id-box" id="setup-bucket-id"></div>
+      <p class="sub" style="margin-bottom:14px;">Abra o arquivo <code class="inline">index.html</code>, ache a linha <code class="inline">const BUCKET_ID = '';</code> perto do início do script, cole o código entre as aspas, salve e suba de novo pro GitHub. Isso garante que todo mundo (você e os convidados) usa o mesmo banco.</p>
+      <button class="btn-cyan" onclick="setupContinue()">Já copiei, continuar testando</button>
+    </div>
+  </div>
+
+  <!-- LANDING -->
+  <div class="view" id="view-landing">
+    <p class="eyebrow">toca aí</p>
+    <h1 class="display">A fila da festa é sua.</h1>
+    <p class="sub">Um dispositivo toca a música. Todo mundo pede. Sem login, sem app — só um código.</p>
+
+    <div class="vinyl-wrap"><div class="vinyl"><div class="vinyl-label"></div></div></div>
+
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:10px;">sou o anfitrião</p>
+      <p class="sub" style="margin-bottom:16px;">Este dispositivo vai tocar as músicas e controlar a fila.</p>
+      <button class="btn-primary" onclick="createRoom()">Criar sala nova</button>
+      <div style="height:8px;"></div>
+      <button class="btn-ghost" onclick="showView('view-resume')">Já tenho um código de sala</button>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:10px;">sou convidado</p>
+      <p class="sub" style="margin-bottom:16px;">Peça uma música para tocar no som da festa.</p>
+      <button class="btn-cyan" onclick="showView('view-guest-join')">Pedir uma música</button>
+    </div>
+  </div>
+
+  <!-- RESUME HOST SESSION -->
+  <div class="view" id="view-resume">
+    <p class="back"><span class="link-btn" onclick="showView('view-landing')">‹ voltar</span></p>
+    <p class="eyebrow">retomar sala</p>
+    <h1 class="display" style="font-size:26px;">Digite o código da sua sala</h1>
+    <div class="card">
+      <label>Código da sala</label>
+      <input type="text" class="code-input" id="resume-code-input" maxlength="6" placeholder="ABC123">
+      <div class="error-msg" id="resume-error"></div>
+      <button class="btn-primary" onclick="resumeRoom()">Entrar como anfitrião</button>
+    </div>
+  </div>
+
+  <!-- HOST VIEW -->
+  <div class="view" id="view-host">
+    <span class="status-pill"><span class="dot live"></span> sala ativa</span>
+    <h1 class="display" style="font-size:24px;">Painel do anfitrião</h1>
+
+    <div class="card" style="text-align:center;">
+      <p class="eyebrow">código para os convidados</p>
+      <div class="code-display" id="host-code-display">------</div>
+      <div class="row" style="margin-bottom:4px;">
+        <button class="btn-ghost" onclick="copyCode()">Copiar código</button>
+        <button class="btn-ghost" onclick="copyLink()">Copiar link</button>
+      </div>
+      <div id="host-qr-box" class="qr-box" style="display:none;"></div>
+      <p class="qr-note">Escaneie o QR ou entre no link do site e digite o código.</p>
+    </div>
+
+    <div class="card">
+      <div class="vinyl-wrap"><div class="vinyl" id="host-vinyl"><div class="vinyl-label"></div></div></div>
+      <div class="now-playing" id="host-now-playing">
+        <p class="empty">Nenhuma música tocando ainda</p>
+      </div>
+      <div class="row">
+        <button class="btn-secondary" id="btn-playpause" onclick="togglePlayPause()">Pausar</button>
+        <button class="btn-primary" onclick="skipSong()">Pular ▸</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px;">próximas na fila</p>
+      <div id="host-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
+    </div>
+
+    <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
+    <div id="yt-player"></div>
+  </div>
+
+  <!-- GUEST: JOIN -->
+  <div class="view" id="view-guest-join">
+    <p class="back"><span class="link-btn" onclick="showView('view-landing')">‹ voltar</span></p>
+    <p class="eyebrow">entrar na sala</p>
+    <h1 class="display" style="font-size:26px;">Qual o código da festa?</h1>
+    <p class="sub">Peça o código para o anfitrião.</p>
+    <div class="card">
+      <label>Código da sala</label>
+      <input type="text" class="code-input" id="join-code-input" maxlength="6" placeholder="ABC123">
+      <div class="error-msg" id="join-error"></div>
+      <button class="btn-cyan" onclick="joinRoom()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- GUEST: REQUEST FORM -->
+  <div class="view" id="view-guest-form">
+    <span class="status-pill"><span class="dot live"></span> conectado à sala <span class="mono" id="guest-room-code-label"></span></span>
+    <h1 class="display" style="font-size:24px;">Pedir uma música</h1>
+
+    <div class="card">
+      <label>Seu nome</label>
+      <input type="text" id="guest-name-input" placeholder="Como quer aparecer na fila?">
+      <label>Link do YouTube / YouTube Music</label>
+      <input type="text" id="guest-link-input" placeholder="Cole o link aqui">
+      <div class="error-msg" id="guest-error"></div>
+      <div class="success-msg" id="guest-success" style="display:none;">Música adicionada à fila! 🎶</div>
+      <button class="btn-primary" onclick="submitSong()">Enviar para a fila</button>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px;">fila atual</p>
+      <div id="guest-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO: cole aqui o ID do bucket depois de criá-lo
+   na tela de configuração inicial (só precisa fazer 1 vez).
+   ============================================================ */
+const BUCKET_ID = '';
+
+const KV_BASE = 'https://kvdb.io';
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+let currentRoomCode = null;
+let isHost = false;
+let hostPollInterval = null;
+let guestPollInterval = null;
+let ytPlayer = null;
+let ytReady = false;
+
+function getBucketId(){
+  return BUCKET_ID || localStorage.getItem('toca_ai_bucket_id') || '';
+}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  if(!getBucketId()){
+    showView('view-setup');
+  }else{
+    showView('view-landing');
+  }
+});
+
+/* ---------- SETUP (criação do bucket no KVdb) ---------- */
+
+async function setupBucket(){
+  const emailInput = document.getElementById('setup-email-input');
+  const errorEl = document.getElementById('setup-error');
+  errorEl.textContent = '';
+  const email = emailInput.value.trim();
+  if(!email){ errorEl.textContent = 'Digite um e-mail.'; return; }
+
+  try{
+    const res = await fetch(KV_BASE + '/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'email=' + encodeURIComponent(email)
+    });
+    if(!res.ok) throw new Error('fail');
+    const bucketId = (await res.text()).trim();
+    localStorage.setItem('toca_ai_bucket_id', bucketId);
+    document.getElementById('setup-bucket-id').textContent = bucketId;
+    document.getElementById('setup-result').style.display = 'block';
+  }catch(e){
+    errorEl.textContent = 'Não consegui criar o banco agora. Confira sua conexão e tente de novo.';
+  }
+}
+
+function setupContinue(){
+  showView('view-landing');
+}
+
+/* ---------- KVdb helpers ---------- */
+
+async function kvGet(key){
+  const bucket = getBucketId();
+  if(!bucket) return null;
+  try{
+    const res = await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`);
+    if(res.status === 404) return null;
+    if(!res.ok) return null;
+    return await res.text();
+  }catch(e){
+    return null;
+  }
+}
+
+async function kvSet(key, value){
+  const bucket = getBucketId();
+  if(!bucket) return false;
+  try{
+    const res = await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`, {
+      method: 'POST',
+      body: value
+    });
+    return res.ok;
+  }catch(e){
+    return false;
+  }
+}
+
+async function kvDelete(key){
+  const bucket = getBucketId();
+  if(!bucket) return;
+  try{
+    await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  }catch(e){}
+}
+
+async function loadRoom(code){
+  const text = await kvGet('room:' + code);
+  if(!text) return null;
+  try{ return JSON.parse(text); }catch(e){ return null; }
+}
+
+async function saveRoom(code, data){
+  return await kvSet('room:' + code, JSON.stringify(data));
+}
+
+/* ---------- utils ---------- */
+
+function genCode(){
+  let c = '';
+  for(let i=0;i<6;i++) c += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];
+  return c;
+}
+
+function extractVideoId(url){
+  if(!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|music\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+  ];
+  for(const p of patterns){
+    const m = url.match(p);
+    if(m) return m[1];
+  }
+  return null;
+}
+
+async function fetchTitle(videoId){
+  try{
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.title) return data.title;
+    }
+  }catch(e){}
+  return 'Música do YouTube';
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+/* ---------- HOST ---------- */
+
+async function createRoom(){
+  if(!getBucketId()){ showView('view-setup'); return; }
+  const code = genCode();
+  const room = { code, createdAt: Date.now(), queue: [], current: null, isPlaying: false };
+  const ok = await saveRoom(code, room);
+  if(!ok){ alert('Não foi possível criar a sala. Confira sua conexão e tente de novo.'); return; }
+  currentRoomCode = code;
+  isHost = true;
+  enterHostView();
+}
+
+async function resumeRoom(){
+  if(!getBucketId()){ showView('view-setup'); return; }
+  const input = document.getElementById('resume-code-input');
+  const code = input.value.trim().toUpperCase();
+  const errorEl = document.getElementById('resume-error');
+  errorEl.textContent = '';
+  if(!code){ errorEl.textContent = 'Digite um código.'; return; }
+  const room = await loadRoom(code);
+  if(!room){ errorEl.textContent = 'Sala não encontrada. Confira o código.'; return; }
+  currentRoomCode = code;
+  isHost = true;
+  enterHostView();
+}
+
+function enterHostView(){
+  document.getElementById('host-code-display').textContent = currentRoomCode;
+  renderQR();
+  showView('view-host');
+  refreshHostState();
+  if(hostPollInterval) clearInterval(hostPollInterval);
+  hostPollInterval = setInterval(refreshHostState, 4000);
+}
+
+function renderQR(){
+  const box = document.getElementById('host-qr-box');
+  box.innerHTML = '';
+  try{
+    const canvas = document.createElement('canvas');
+    box.appendChild(canvas);
+    QRCode.toCanvas(canvas, window.location.href, { width: 160, margin: 1, color: { dark: '#120f1d', light: '#ffffff' } });
+    box.style.display = 'flex';
+  }catch(e){
+    box.style.display = 'none';
+  }
+}
+
+function copyCode(){ navigator.clipboard.writeText(currentRoomCode).catch(()=>{}); }
+function copyLink(){ navigator.clipboard.writeText(window.location.href).catch(()=>{}); }
+
+async function refreshHostState(){
+  if(!currentRoomCode) return;
+  const room = await loadRoom(currentRoomCode);
+  if(!room) return;
+  renderHostQueue(room);
+  renderNowPlaying(room);
+  if(!room.current && room.queue.length > 0 && ytReady){
+    await playNext();
+  }
+}
+
+function renderHostQueue(room){
+  const list = document.getElementById('host-queue-list');
+  if(!room.queue.length){
+    list.innerHTML = '<p class="empty-queue">A fila está vazia.</p>';
+    return;
+  }
+  list.innerHTML = room.queue.map((item, i) => `
+    <div class="queue-item">
+      <span class="queue-num mono">${i+1}</span>
+      <div class="queue-info">
+        <div class="t">${escapeHtml(item.title)}</div>
+        <div class="r">pedido por ${escapeHtml(item.requester)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderGuestQueue(room){
+  const items = [];
+  if(room.current){
+    items.push(`
+      <div class="queue-item">
+        <span class="queue-num mono">▶</span>
+        <div class="queue-info">
+          <div class="t">${escapeHtml(room.current.title)}</div>
+          <div class="r">tocando agora · pedido por ${escapeHtml(room.current.requester)}</div>
+        </div>
+      </div>
+    `);
+  }
+  room.queue.forEach((item, i) => {
+    items.push(`
+      <div class="queue-item">
+        <span class="queue-num mono">${i+1}</span>
+        <div class="queue-info">
+          <div class="t">${escapeHtml(item.title)}</div>
+          <div class="r">pedido por ${escapeHtml(item.requester)}</div>
+        </div>
+      </div>
+    `);
+  });
+  document.getElementById('guest-queue-list').innerHTML = items.length ? items.join('') : '<p class="empty-queue">A fila está vazia.</p>';
+}
+
+function renderNowPlaying(room){
+  const el = document.getElementById('host-now-playing');
+  const vinyl = document.getElementById('host-vinyl');
+  if(room.current){
+    el.innerHTML = `<p class="title">${escapeHtml(room.current.title)}</p><p class="who">pedido por ${escapeHtml(room.current.requester)}</p>`;
+    vinyl.classList.toggle('spinning', room.isPlaying);
+  }else{
+    el.innerHTML = '<p class="empty">Nenhuma música tocando ainda</p>';
+    vinyl.classList.remove('spinning');
+  }
+  document.getElementById('btn-playpause').textContent = room.isPlaying ? 'Pausar' : 'Retomar';
+}
+
+async function playNext(){
+  const room = await loadRoom(currentRoomCode);
+  if(!room || room.queue.length === 0) return;
+  const next = room.queue[0];
+  const newQueue = room.queue.slice(1);
+  const updated = { ...room, queue: newQueue, current: next, isPlaying: true };
+  await saveRoom(currentRoomCode, updated);
+  if(ytPlayer && ytReady){
+    ytPlayer.loadVideoById(next.videoId);
+    ytPlayer.playVideo();
+  }
+  renderHostQueue(updated);
+  renderNowPlaying(updated);
+}
+
+async function skipSong(){ await playNext(); }
+
+async function togglePlayPause(){
+  const room = await loadRoom(currentRoomCode);
+  if(!room || !room.current) return;
+  const newPlaying = !room.isPlaying;
+  if(ytPlayer && ytReady){
+    if(newPlaying) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+  }
+  const updated = { ...room, isPlaying: newPlaying };
+  await saveRoom(currentRoomCode, updated);
+  renderNowPlaying(updated);
+}
+
+async function endRoom(){
+  if(!confirm('Encerrar a sala? Os convidados não vão mais conseguir pedir músicas.')) return;
+  if(hostPollInterval) clearInterval(hostPollInterval);
+  await kvDelete('room:' + currentRoomCode);
+  currentRoomCode = null;
+  isHost = false;
+  showView('view-landing');
+}
+
+function onYouTubeIframeAPIReady(){
+  ytPlayer = new YT.Player('yt-player', {
+    height: '1',
+    width: '1',
+    playerVars: { autoplay: 1 },
+    events: {
+      onReady: () => { ytReady = true; },
+      onStateChange: (e) => { if(e.data === YT.PlayerState.ENDED) playNext(); }
+    }
+  });
+}
+
+/* ---------- GUEST ---------- */
+
+async function joinRoom(){
+  if(!getBucketId()){ showView('view-setup'); return; }
+  const input = document.getElementById('join-code-input');
+  const code = input.value.trim().toUpperCase();
+  const errorEl = document.getElementById('join-error');
+  errorEl.textContent = '';
+  if(!code){ errorEl.textContent = 'Digite um código.'; return; }
+  const room = await loadRoom(code);
+  if(!room){ errorEl.textContent = 'Sala não encontrada. Confira o código com o anfitrião.'; return; }
+  currentRoomCode = code;
+  isHost = false;
+  document.getElementById('guest-room-code-label').textContent = code;
+  showView('view-guest-form');
+  renderGuestQueue(room);
+  if(guestPollInterval) clearInterval(guestPollInterval);
+  guestPollInterval = setInterval(async () => {
+    const r = await loadRoom(currentRoomCode);
+    if(r) renderGuestQueue(r);
+  }, 4000);
+}
+
+async function submitSong(){
+  const nameInput = document.getElementById('guest-name-input');
+  const linkInput = document.getElementById('guest-link-input');
+  const errorEl = document.getElementById('guest-error');
+  const successEl = document.getElementById('guest-success');
+  errorEl.textContent = '';
+  successEl.style.display = 'none';
+
+  const name = nameInput.value.trim();
+  const url = linkInput.value.trim();
+
+  if(!name){ errorEl.textContent = 'Digite seu nome.'; return; }
+  if(!url){ errorEl.textContent = 'Cole o link da música.'; return; }
+  const videoId = extractVideoId(url);
+  if(!videoId){ errorEl.textContent = 'Não reconheci esse link. Use um link do YouTube ou YouTube Music.'; return; }
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const title = await fetchTitle(videoId);
+
+  const room = await loadRoom(currentRoomCode);
+  if(!room){
+    errorEl.textContent = 'A sala não existe mais.';
+    btn.disabled = false;
+    btn.textContent = 'Enviar para a fila';
+    return;
+  }
+  const newItem = { videoId, title, requester: name, addedAt: Date.now() };
+  const updated = { ...room, queue: [...room.queue, newItem] };
+  const ok = await saveRoom(currentRoomCode, updated);
+
+  btn.disabled = false;
+  btn.textContent = 'Enviar para a fila';
+
+  if(!ok){
+    errorEl.textContent = 'Não deu para enviar agora. Tente de novo.';
+    return;
+  }
+  linkInput.value = '';
+  successEl.style.display = 'block';
+  renderGuestQueue(updated);
+  setTimeout(() => { successEl.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>
