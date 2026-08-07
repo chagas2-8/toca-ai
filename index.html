@@ -316,7 +316,7 @@
    CONFIGURAÇÃO: cole aqui o ID do bucket depois de criá-lo
    na tela de configuração inicial (só precisa fazer 1 vez).
    ============================================================ */
-const BUCKET_ID = 'L3e4ZqzGgYY5zk942XWbHa';
+const BUCKET_ID = '';
 
 const KV_BASE = 'https://kvdb.io';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -388,15 +388,24 @@ function setupContinue(){
 
 /* ---------- KVdb helpers ---------- */
 
+let lastKvError = '';
+
 async function kvGet(key){
   const bucket = getBucketId();
   if(!bucket) return null;
   try{
     const res = await fetch(`${KV_BASE}/${bucket}/${encodeURIComponent(key)}`);
     if(res.status === 404) return null;
-    if(!res.ok) return null;
+    if(!res.ok){
+      lastKvError = `status ${res.status}`;
+      try{ lastKvError += ': ' + (await res.text()); }catch(e){}
+      console.error('kvGet falhou', lastKvError);
+      return null;
+    }
     return await res.text();
   }catch(e){
+    lastKvError = 'erro de rede/CORS: ' + e.message;
+    console.error('kvGet falhou', e);
     return null;
   }
 }
@@ -409,8 +418,16 @@ async function kvSet(key, value){
       method: 'POST',
       body: value
     });
-    return res.ok;
+    if(!res.ok){
+      lastKvError = `status ${res.status}`;
+      try{ lastKvError += ': ' + (await res.text()); }catch(e){}
+      console.error('kvSet falhou', lastKvError);
+      return false;
+    }
+    return true;
   }catch(e){
+    lastKvError = 'erro de rede/CORS: ' + e.message;
+    console.error('kvSet falhou', e);
     return false;
   }
 }
@@ -480,7 +497,7 @@ async function createRoom(){
   const code = genCode();
   const room = { code, createdAt: Date.now(), queue: [], current: null, isPlaying: false };
   const ok = await saveRoom(code, room);
-  if(!ok){ alert('Não foi possível criar a sala. Confira sua conexão e tente de novo.'); return; }
+  if(!ok){ alert('Não foi possível criar a sala.\n\nDetalhe técnico: ' + lastKvError + '\n\nMe conta esse detalhe no chat pra eu te ajudar a resolver.'); return; }
   currentRoomCode = code;
   isHost = true;
   localStorage.setItem('toca_ai_host_room', code);
