@@ -520,7 +520,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 7000){
 
 async function loadRoom(code){
   try{
-    const res = await fetchWithTimeout(`${DB_URL}/rooms/${code}.json`);
+    const res = await fetchWithTimeout(`${DB_URL}/rooms/${code}.json`, { cache: 'no-store' });
     if(!res.ok){
       lastKvError = `status ${res.status}`;
       console.error('loadRoom falhou', lastKvError);
@@ -938,16 +938,15 @@ function renderNowPlaying(room){
 }
 
 async function playNext(){
+  if(!ytPlayer || !ytReady) return;
   const room = await loadRoom(currentRoomCode);
   if(!room || room.queue.length === 0) return;
   const next = room.queue[0];
   const newQueue = room.queue.slice(1);
   const updated = { ...room, queue: newQueue, current: next, isPlaying: true };
+  ytPlayer.loadVideoById(next.videoId);
+  ytPlayer.playVideo();
   await saveRoom(currentRoomCode, updated);
-  if(ytPlayer && ytReady){
-    ytPlayer.loadVideoById(next.videoId);
-    ytPlayer.playVideo();
-  }
   renderHostQueue(updated);
   renderNowPlaying(updated);
 }
