@@ -198,22 +198,12 @@
     background:var(--muted);
   }
 
-  /* player de vídeo (escondido fora do Modo TV — o áudio toca normalmente mesmo invisível) */
+  /* player de vídeo: sempre escondido — só toca o áudio, a capa é o visual */
   .yt-player-wrap{
     width:1px;height:1px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;
   }
   .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
 
-  /* modo TV: o player nunca sai da tela (fica em tela cheia sempre), só muda o z-index */
-  body.tv-active .yt-player-wrap{
-    position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;background:#000;overflow:visible;border-radius:0;
-  }
-  body.tv-active:not(.tv-show-video) .yt-player-wrap{
-    z-index:35;
-  }
-  body.tv-active.tv-show-video .yt-player-wrap{
-    z-index:40;
-  }
   body.tv-active .host-panel-normal{ display:none !important; }
   #tv-overlay{ display:none; }
   body.tv-active #tv-overlay{ display:block; }
@@ -221,7 +211,7 @@
   #tv-cover-stage{
     display:none;position:fixed;inset:0;z-index:39;background:#000;
   }
-  body.tv-active:not(.tv-show-video) #tv-cover-stage{ display:block; }
+  body.tv-active #tv-cover-stage{ display:block; }
   #tv-cover-stage img{
     width:100%;height:100%;object-fit:cover;filter:brightness(0.85) saturate(1.15);
   }
@@ -242,6 +232,28 @@
     box-shadow:0 0 0 3px rgba(255,255,255,0.18);
   }
   .tv-cover-vinyl-art img{width:100%;height:100%;object-fit:cover;filter:none;}
+
+  .reaction-row{display:flex;gap:10px;}
+  .reaction-btn{
+    flex:1;font-size:26px;padding:14px 0;border-radius:12px;
+    border:1px solid var(--border);background:var(--bg-alt);cursor:pointer;
+    transition:transform .12s ease;line-height:1;
+  }
+  .reaction-btn:active{transform:scale(0.88);}
+
+  #tv-reactions-layer{
+    position:fixed;inset:0;z-index:41;pointer-events:none;overflow:hidden;
+  }
+  .tv-reaction{
+    position:absolute;bottom:12%;font-size:44px;
+    animation:floatUp 3.2s ease-out forwards;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  }
+  @keyframes floatUp{
+    0%{ transform:translateY(0) scale(0.5); opacity:0; }
+    12%{ opacity:1; transform:translateY(-30px) scale(1); }
+    100%{ transform:translateY(-460px) scale(1.15); opacity:0; }
+  }
 
   .tv-corner{
     position:fixed;top:20px;right:20px;z-index:41;
@@ -412,6 +424,16 @@
     </div>
 
     <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px;">manda uma reação</p>
+      <div class="reaction-row">
+        <button class="reaction-btn" onclick="sendReaction('🔥')">🔥</button>
+        <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
+        <button class="reaction-btn" onclick="sendReaction('🙌')">🙌</button>
+        <button class="reaction-btn" onclick="sendReaction('💃')">💃</button>
+      </div>
+    </div>
+
+    <div class="card">
       <p class="eyebrow" style="margin-bottom:12px;">fila atual</p>
       <div id="guest-queue-list"><p class="empty-queue">A fila está vazia.</p></div>
     </div>
@@ -431,6 +453,9 @@
     <div class="tv-cover-vinyl-art"><img id="tv-cover-art" src="" alt=""></div>
   </div>
 </div>
+
+<!-- camada onde as reações dos convidados flutuam -->
+<div id="tv-reactions-layer"></div>
 
 <!-- MODO TV: sobreposição com código, fila resumida e controles -->
 <div id="tv-overlay">
@@ -454,9 +479,6 @@
     <div class="row">
       <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
       <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
-    </div>
-    <div class="row tv-mode-row">
-      <button class="btn-ghost" id="tv-video-toggle-btn" onclick="toggleTvVideoMode()">Mostrar vídeo ao vivo</button>
     </div>
   </div>
 </div>
@@ -656,6 +678,7 @@ function enterHostView(){
   document.getElementById('tv-code-display').textContent = currentRoomCode;
   renderQR();
   showView('view-host');
+  lastReactionTs = Date.now();
   refreshHostState();
   if(hostPollInterval) clearInterval(hostPollInterval);
   hostPollInterval = setInterval(refreshHostState, 4000);
@@ -701,8 +724,6 @@ function copyHostKey(){
 
 function enterTvMode(){
   document.body.classList.add('tv-active');
-  document.body.classList.remove('tv-show-video');
-  document.getElementById('tv-video-toggle-btn').textContent = 'Mostrar vídeo ao vivo';
   if(document.documentElement.requestFullscreen){
     document.documentElement.requestFullscreen().catch(() => {});
   }
@@ -715,16 +736,6 @@ function exitTvMode(){
     document.exitFullscreen().catch(() => {});
   }
   stopVinylBounce();
-}
-
-function toggleTvVideoMode(){
-  const showingVideo = document.body.classList.toggle('tv-show-video');
-  document.getElementById('tv-video-toggle-btn').textContent = showingVideo ? 'Mostrar capa do álbum' : 'Mostrar vídeo ao vivo';
-  if(showingVideo){
-    stopVinylBounce();
-  }else{
-    startVinylBounce();
-  }
 }
 
 /* ---------- animação do vinil (estilo tela de proteção de DVD) ---------- */
@@ -850,9 +861,50 @@ async function refreshHostState(){
   renderHostQueue(room);
   renderTvQueue(room);
   renderNowPlaying(room);
+  processReactions(room);
   if(!room.current && room.queue.length > 0 && ytReady){
     await playNext();
   }
+}
+
+/* ---------- reações rápidas dos convidados ---------- */
+
+let lastReactionTs = 0;
+
+function processReactions(room){
+  const reactions = Array.isArray(room.reactions) ? room.reactions : [];
+  let newest = lastReactionTs;
+  reactions.forEach(r => {
+    if(r.ts > lastReactionTs){
+      spawnReactionEmoji(r.emoji);
+      if(r.ts > newest) newest = r.ts;
+    }
+  });
+  lastReactionTs = newest;
+}
+
+function spawnReactionEmoji(emoji){
+  const layer = document.getElementById('tv-reactions-layer');
+  if(!layer) return;
+  const el = document.createElement('div');
+  el.className = 'tv-reaction';
+  el.textContent = emoji;
+  el.style.left = (30 + Math.random() * 40) + '%';
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), 3300);
+}
+
+async function sendReaction(emoji){
+  if(!currentRoomCode) return;
+  try{
+    const room = await loadRoom(currentRoomCode);
+    if(!room) return;
+    const now = Date.now();
+    const existing = Array.isArray(room.reactions) ? room.reactions : [];
+    const pruned = existing.filter(r => now - r.ts < 15000);
+    pruned.push({ emoji, ts: now });
+    await saveRoom(currentRoomCode, { ...room, reactions: pruned });
+  }catch(e){}
 }
 
 function renderHostQueue(room){
