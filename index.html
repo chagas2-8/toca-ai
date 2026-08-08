@@ -198,14 +198,20 @@
     background:var(--muted);
   }
 
-  /* modo TV */
+  /* player de vídeo */
   .yt-player-wrap{
-    width:1px;height:1px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;
+    width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
+    background:#000;margin:2px 0 16px;position:relative;
+  }
+  .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
+
+  /* modo TV */
+  body.tv-active:not(.tv-show-video) .yt-player-wrap{
+    position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;
   }
   body.tv-active.tv-show-video .yt-player-wrap{
-    position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;z-index:40;background:#000;overflow:visible;
+    position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;z-index:40;background:#000;overflow:visible;border-radius:0;
   }
-  body.tv-active.tv-show-video .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
   body.tv-active .host-panel-normal{ display:none !important; }
   #tv-overlay{ display:none; }
   body.tv-active #tv-overlay{ display:block; }
@@ -330,6 +336,8 @@
       </div>
 
       <div class="card">
+        <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
+        <p class="sub" style="margin:-8px 0 14px;font-size:11.5px;text-align:center;">Se aparecer um anúncio aqui, clique em "Pular anúncio" direto no vídeo.</p>
         <div class="vinyl-wrap"><div class="vinyl" id="host-vinyl"><div class="vinyl-label"></div></div></div>
         <div class="now-playing" id="host-now-playing">
           <p class="empty">Nenhuma música tocando ainda</p>
@@ -372,8 +380,6 @@
         <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
       </div>
     </div>
-
-    <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
 
     <!-- palco de capa: mostrado por padrão, mais confiável que o vídeo cru -->
     <div id="tv-cover-stage">
