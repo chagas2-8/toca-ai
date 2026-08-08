@@ -198,14 +198,13 @@
     background:var(--muted);
   }
 
-  /* player de vídeo */
+  /* player de vídeo (escondido fora do Modo TV — o áudio toca normalmente mesmo invisível) */
   .yt-player-wrap{
-    width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
-    background:#000;margin:2px 0 16px;position:relative;
+    width:1px;height:1px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;
   }
   .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
 
-  /* modo TV */
+  /* modo TV: o player nunca sai da tela (fica em tela cheia sempre), só muda o z-index */
   body.tv-active .yt-player-wrap{
     position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;background:#000;overflow:visible;border-radius:0;
   }
@@ -231,14 +230,13 @@
     background:radial-gradient(circle at 50% 45%, transparent 0%, rgba(18,15,29,0.55) 85%);
   }
   .tv-cover-vinyl{
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    position:absolute;top:0;left:0;
     width:min(38vh,260px);height:min(38vh,260px);border-radius:50%;
     background:repeating-radial-gradient(circle at 50% 50%, #0c0a15 0 2px, #171227 2px 4px);
     box-shadow:0 20px 60px rgba(0,0,0,0.6);
     display:flex;align-items:center;justify-content:center;z-index:1;
-    animation:spin 6s linear infinite;animation-play-state:paused;
+    will-change:transform;
   }
-  .tv-cover-vinyl.spinning{animation-play-state:running;}
   .tv-cover-vinyl-art{
     width:46%;height:46%;border-radius:50%;overflow:hidden;
     box-shadow:0 0 0 3px rgba(255,255,255,0.08);
@@ -340,7 +338,6 @@
 
       <div class="card">
         <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
-        <p class="sub" style="margin:-8px 0 14px;font-size:11.5px;text-align:center;">Se aparecer um anúncio aqui, clique em "Pular anúncio" direto no vídeo.</p>
         <div class="vinyl-wrap"><div class="vinyl" id="host-vinyl"><div class="vinyl-label"></div></div></div>
         <div class="now-playing" id="host-now-playing">
           <p class="empty">Nenhuma música tocando ainda</p>
@@ -705,6 +702,7 @@ function enterTvMode(){
   if(document.documentElement.requestFullscreen){
     document.documentElement.requestFullscreen().catch(() => {});
   }
+  startVinylBounce();
 }
 
 function exitTvMode(){
@@ -712,11 +710,66 @@ function exitTvMode(){
   if(document.fullscreenElement && document.exitFullscreen){
     document.exitFullscreen().catch(() => {});
   }
+  stopVinylBounce();
 }
 
 function toggleTvVideoMode(){
   const showingVideo = document.body.classList.toggle('tv-show-video');
   document.getElementById('tv-video-toggle-btn').textContent = showingVideo ? 'Mostrar capa do álbum' : 'Mostrar vídeo ao vivo';
+  if(showingVideo){
+    stopVinylBounce();
+  }else{
+    startVinylBounce();
+  }
+}
+
+/* ---------- animação do vinil (estilo tela de proteção de DVD) ---------- */
+
+let tvVinylSpinning = false;
+const vinylAnim = { x: 0, y: 0, vx: 130, vy: 90, angle: 0, raf: null, lastT: null, size: 260 };
+
+function startVinylBounce(){
+  const el = document.getElementById('tv-cover-vinyl');
+  if(!el || vinylAnim.raf) return;
+  const rect = el.getBoundingClientRect();
+  vinylAnim.size = rect.width || 260;
+  vinylAnim.x = window.innerWidth / 2;
+  vinylAnim.y = window.innerHeight / 2;
+  vinylAnim.vx = 130 * (Math.random() < 0.5 ? 1 : -1);
+  vinylAnim.vy = 90 * (Math.random() < 0.5 ? 1 : -1);
+  vinylAnim.lastT = null;
+
+  function step(t){
+    if(vinylAnim.lastT === null) vinylAnim.lastT = t;
+    const dt = Math.min((t - vinylAnim.lastT) / 1000, 0.05);
+    vinylAnim.lastT = t;
+    const r = vinylAnim.size / 2;
+
+    vinylAnim.x += vinylAnim.vx * dt;
+    vinylAnim.y += vinylAnim.vy * dt;
+
+    const maxX = window.innerWidth - r;
+    const maxY = window.innerHeight - r;
+    if(vinylAnim.x < r){ vinylAnim.x = r; vinylAnim.vx = Math.abs(vinylAnim.vx); }
+    if(vinylAnim.x > maxX){ vinylAnim.x = maxX; vinylAnim.vx = -Math.abs(vinylAnim.vx); }
+    if(vinylAnim.y < r){ vinylAnim.y = r; vinylAnim.vy = Math.abs(vinylAnim.vy); }
+    if(vinylAnim.y > maxY){ vinylAnim.y = maxY; vinylAnim.vy = -Math.abs(vinylAnim.vy); }
+
+    if(tvVinylSpinning){
+      vinylAnim.angle = (vinylAnim.angle + 70 * dt) % 360;
+    }
+
+    el.style.transform = `translate(${vinylAnim.x - r}px, ${vinylAnim.y - r}px) rotate(${vinylAnim.angle}deg)`;
+    vinylAnim.raf = requestAnimationFrame(step);
+  }
+  vinylAnim.raf = requestAnimationFrame(step);
+}
+
+function stopVinylBounce(){
+  if(vinylAnim.raf){
+    cancelAnimationFrame(vinylAnim.raf);
+    vinylAnim.raf = null;
+  }
 }
 
 /* ---------- barra de progresso (seek) ---------- */
@@ -870,14 +923,14 @@ function renderNowPlaying(room){
     tvNow.textContent = `${room.current.title} — pedido por ${room.current.requester}`;
     const thumbUrl = `https://img.youtube.com/vi/${room.current.videoId}/hqdefault.jpg`;
     if(tvCoverBg.src !== thumbUrl){ tvCoverBg.src = thumbUrl; tvCoverArt.src = thumbUrl; }
-    tvVinyl.classList.toggle('spinning', room.isPlaying);
+    tvVinylSpinning = room.isPlaying;
   }else{
     el.innerHTML = '<p class="empty">Nenhuma música tocando ainda</p>';
     vinyl.classList.remove('spinning');
     tvNow.textContent = 'Nenhuma música tocando ainda';
     tvCoverBg.src = '';
     tvCoverArt.src = '';
-    tvVinyl.classList.remove('spinning');
+    tvVinylSpinning = false;
   }
   document.querySelectorAll('.playpause-btn').forEach(btn => {
     btn.textContent = room.isPlaying ? 'Pausar' : 'Retomar';
@@ -1036,13 +1089,23 @@ async function submitSong(evt){
   btn.textContent = 'Enviando...';
 
   const work = (async () => {
-    const title = await fetchTitle(videoId);
-
     const room = await loadRoom(currentRoomCode);
     if(!room){
       errorEl.textContent = 'A sala não existe mais.';
       return;
     }
+    const alreadyCurrent = room.current && room.current.videoId === videoId;
+    const alreadyQueued = room.queue.some(item => item.videoId === videoId);
+    if(alreadyCurrent){
+      errorEl.textContent = 'Essa música já está tocando agora.';
+      return;
+    }
+    if(alreadyQueued){
+      errorEl.textContent = 'Essa música já está na fila.';
+      return;
+    }
+
+    const title = await fetchTitle(videoId);
     const newItem = { videoId, title, requester: name, addedAt: Date.now() };
     const updated = { ...room, queue: [...room.queue, newItem] };
     const ok = await saveRoom(currentRoomCode, updated);
