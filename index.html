@@ -196,13 +196,40 @@
   .yt-player-wrap{
     width:1px;height:1px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;
   }
-  body.tv-active .yt-player-wrap{
+  body.tv-active.tv-show-video .yt-player-wrap{
     position:fixed;inset:0;width:100vw;height:100vh;left:0;top:0;z-index:40;background:#000;overflow:visible;
   }
-  body.tv-active .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
+  body.tv-active.tv-show-video .yt-player-wrap iframe{ width:100% !important; height:100% !important; }
   body.tv-active .host-panel-normal{ display:none !important; }
   #tv-overlay{ display:none; }
   body.tv-active #tv-overlay{ display:block; }
+
+  #tv-cover-stage{
+    display:none;position:fixed;inset:0;z-index:39;background:#000;
+  }
+  body.tv-active:not(.tv-show-video) #tv-cover-stage{ display:block; }
+  #tv-cover-stage img{
+    width:100%;height:100%;object-fit:cover;filter:brightness(0.5) saturate(1.15);
+  }
+  #tv-cover-stage::after{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(circle at 50% 45%, transparent 0%, rgba(18,15,29,0.55) 85%);
+  }
+  .tv-cover-vinyl{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:min(38vh,260px);height:min(38vh,260px);border-radius:50%;
+    background:repeating-radial-gradient(circle at 50% 50%, #0c0a15 0 2px, #171227 2px 4px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    display:flex;align-items:center;justify-content:center;z-index:1;
+    animation:spin 6s linear infinite;animation-play-state:paused;
+  }
+  .tv-cover-vinyl.spinning{animation-play-state:running;}
+  .tv-cover-vinyl-art{
+    width:46%;height:46%;border-radius:50%;overflow:hidden;
+    box-shadow:0 0 0 3px rgba(255,255,255,0.08);
+  }
+  .tv-cover-vinyl-art img{width:100%;height:100%;object-fit:cover;filter:none;}
+
   .tv-corner{
     position:fixed;top:20px;right:20px;z-index:41;
     background:rgba(18,15,29,0.88);backdrop-filter:blur(10px);
@@ -218,6 +245,7 @@
   }
   .tv-controls .seek-row{margin-bottom:12px;}
   .tv-controls .row{max-width:340px;}
+  .tv-controls .row.tv-mode-row{max-width:340px;margin-top:8px;}
   .tv-exit-btn{
     position:fixed;top:20px;left:20px;z-index:42;width:auto;padding:9px 14px;
     background:rgba(18,15,29,0.88);backdrop-filter:blur(10px);
@@ -340,6 +368,14 @@
 
     <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
 
+    <!-- palco de capa: mostrado por padrão, mais confiável que o vídeo cru -->
+    <div id="tv-cover-stage">
+      <img id="tv-cover-bg" src="" alt="">
+      <div class="tv-cover-vinyl" id="tv-cover-vinyl">
+        <div class="tv-cover-vinyl-art"><img id="tv-cover-art" src="" alt=""></div>
+      </div>
+    </div>
+
     <!-- MODO TV: sobreposição com código, fila resumida e controles -->
     <div id="tv-overlay">
       <button class="tv-exit-btn btn-ghost" onclick="exitTvMode()">✕ Sair do Modo TV</button>
@@ -362,6 +398,9 @@
         <div class="row">
           <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
           <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
+        </div>
+        <div class="row tv-mode-row">
+          <button class="btn-ghost" id="tv-video-toggle-btn" onclick="toggleTvVideoMode()">Mostrar vídeo ao vivo</button>
         </div>
       </div>
     </div>
@@ -644,6 +683,8 @@ function copyHostKey(){
 
 function enterTvMode(){
   document.body.classList.add('tv-active');
+  document.body.classList.remove('tv-show-video');
+  document.getElementById('tv-video-toggle-btn').textContent = 'Mostrar vídeo ao vivo';
   if(document.documentElement.requestFullscreen){
     document.documentElement.requestFullscreen().catch(() => {});
   }
@@ -654,6 +695,11 @@ function exitTvMode(){
   if(document.fullscreenElement && document.exitFullscreen){
     document.exitFullscreen().catch(() => {});
   }
+}
+
+function toggleTvVideoMode(){
+  const showingVideo = document.body.classList.toggle('tv-show-video');
+  document.getElementById('tv-video-toggle-btn').textContent = showingVideo ? 'Mostrar capa do álbum' : 'Mostrar vídeo ao vivo';
 }
 
 /* ---------- barra de progresso (seek) ---------- */
@@ -774,14 +820,23 @@ function renderNowPlaying(room){
   const el = document.getElementById('host-now-playing');
   const vinyl = document.getElementById('host-vinyl');
   const tvNow = document.getElementById('tv-now-playing');
+  const tvVinyl = document.getElementById('tv-cover-vinyl');
+  const tvCoverBg = document.getElementById('tv-cover-bg');
+  const tvCoverArt = document.getElementById('tv-cover-art');
   if(room.current){
     el.innerHTML = `<p class="title">${escapeHtml(room.current.title)}</p><p class="who">pedido por ${escapeHtml(room.current.requester)}</p>`;
     vinyl.classList.toggle('spinning', room.isPlaying);
     tvNow.textContent = `${room.current.title} — pedido por ${room.current.requester}`;
+    const thumbUrl = `https://img.youtube.com/vi/${room.current.videoId}/hqdefault.jpg`;
+    if(tvCoverBg.src !== thumbUrl){ tvCoverBg.src = thumbUrl; tvCoverArt.src = thumbUrl; }
+    tvVinyl.classList.toggle('spinning', room.isPlaying);
   }else{
     el.innerHTML = '<p class="empty">Nenhuma música tocando ainda</p>';
     vinyl.classList.remove('spinning');
     tvNow.textContent = 'Nenhuma música tocando ainda';
+    tvCoverBg.src = '';
+    tvCoverArt.src = '';
+    tvVinyl.classList.remove('spinning');
   }
   document.querySelectorAll('.playpause-btn').forEach(btn => {
     btn.textContent = room.isPlaying ? 'Pausar' : 'Retomar';
