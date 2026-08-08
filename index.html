@@ -380,45 +380,6 @@
         <button class="btn-danger" onclick="endRoom()">Encerrar sala</button>
       </div>
     </div>
-
-    <div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
-
-    <!-- palco de capa: mostrado por padrão, mais confiável que o vídeo cru -->
-    <div id="tv-cover-stage">
-      <img id="tv-cover-bg" src="" alt="">
-      <div class="tv-cover-vinyl" id="tv-cover-vinyl">
-        <div class="tv-cover-vinyl-art"><img id="tv-cover-art" src="" alt=""></div>
-      </div>
-    </div>
-
-    <!-- MODO TV: sobreposição com código, fila resumida e controles -->
-    <div id="tv-overlay">
-      <button class="tv-exit-btn btn-ghost" onclick="exitTvMode()">✕ Sair do Modo TV</button>
-      <div class="tv-corner">
-        <p class="eyebrow" style="margin-bottom:6px;">peça sua música</p>
-        <p class="sub" style="margin-bottom:10px;font-size:13px;">Acesse este link e digite o código:</p>
-        <div class="code-display" id="tv-code-display" style="font-size:26px;margin-bottom:10px;">------</div>
-        <p class="eyebrow" style="margin-bottom:8px;">próximas</p>
-        <div id="tv-queue-list"></div>
-      </div>
-      <div class="tv-controls">
-        <p class="mono" id="tv-now-playing" style="font-size:13px;color:var(--muted);margin:0 0 6px;">—</p>
-        <div class="seek-row">
-          <span class="mono time-current">0:00</span>
-          <input type="range" class="seek-bar" min="0" max="100" value="0"
-                 onmousedown="onSeekStart()" ontouchstart="onSeekStart()"
-                 onchange="onSeekCommit(event)">
-          <span class="mono time-duration">0:00</span>
-        </div>
-        <div class="row">
-          <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
-          <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
-        </div>
-        <div class="row tv-mode-row">
-          <button class="btn-ghost" id="tv-video-toggle-btn" onclick="toggleTvVideoMode()">Mostrar vídeo ao vivo</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- GUEST: JOIN -->
@@ -456,6 +417,48 @@
     </div>
   </div>
 
+</div>
+
+<!-- Estes três blocos ficam FORA de #app de propósito, direto no body,
+     para o Modo TV em tela cheia nunca ser afetado por nenhum ancestral. -->
+
+<div class="yt-player-wrap" id="yt-player-wrap"><div id="yt-player"></div></div>
+
+<!-- palco de capa: mostrado por padrão, mais confiável que o vídeo cru -->
+<div id="tv-cover-stage">
+  <img id="tv-cover-bg" src="" alt="">
+  <div class="tv-cover-vinyl" id="tv-cover-vinyl">
+    <div class="tv-cover-vinyl-art"><img id="tv-cover-art" src="" alt=""></div>
+  </div>
+</div>
+
+<!-- MODO TV: sobreposição com código, fila resumida e controles -->
+<div id="tv-overlay">
+  <button class="tv-exit-btn btn-ghost" onclick="exitTvMode()">✕ Sair do Modo TV</button>
+  <div class="tv-corner">
+    <p class="eyebrow" style="margin-bottom:6px;">peça sua música</p>
+    <p class="sub" style="margin-bottom:10px;font-size:13px;">Acesse este link e digite o código:</p>
+    <div class="code-display" id="tv-code-display" style="font-size:26px;margin-bottom:10px;">------</div>
+    <p class="eyebrow" style="margin-bottom:8px;">próximas</p>
+    <div id="tv-queue-list"></div>
+  </div>
+  <div class="tv-controls">
+    <p class="mono" id="tv-now-playing" style="font-size:13px;color:var(--muted);margin:0 0 6px;">—</p>
+    <div class="seek-row">
+      <span class="mono time-current">0:00</span>
+      <input type="range" class="seek-bar" min="0" max="100" value="0"
+             onmousedown="onSeekStart()" ontouchstart="onSeekStart()"
+             onchange="onSeekCommit(event)">
+      <span class="mono time-duration">0:00</span>
+    </div>
+    <div class="row">
+      <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
+      <button class="btn-primary skip-btn" onclick="skipSong()">Pular ▸</button>
+    </div>
+    <div class="row tv-mode-row">
+      <button class="btn-ghost" id="tv-video-toggle-btn" onclick="toggleTvVideoMode()">Mostrar vídeo ao vivo</button>
+    </div>
+  </div>
 </div>
 
 <script>
