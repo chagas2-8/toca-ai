@@ -191,6 +191,12 @@
   input[type=range].seek-bar::-moz-range-thumb{
     width:15px;height:15px;border-radius:50%;background:var(--pink);border:2px solid #1a0f14;cursor:pointer;
   }
+  input[type=range].seek-bar:disabled{
+    opacity:.35;cursor:not-allowed;
+  }
+  input[type=range].seek-bar:disabled::-webkit-slider-thumb{
+    background:var(--muted);
+  }
 
   /* modo TV */
   .yt-player-wrap{
@@ -336,6 +342,7 @@
                  onchange="onSeekCommit(event)">
           <span class="mono time-duration">0:00</span>
         </div>
+        <p class="mono" id="yt-debug" style="font-size:10px;color:var(--muted);opacity:.6;margin:-10px 0 14px;">yt: —</p>
 
         <div class="row">
           <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
@@ -720,17 +727,41 @@ function formatTime(s){
 }
 
 function updateProgressUI(){
-  if(!ytPlayer || !ytReady || isSeekingUI) return;
+  const debugEl = document.getElementById('yt-debug');
+  if(!ytPlayer || !ytReady){
+    if(debugEl) debugEl.textContent = 'yt: player ainda não carregou (ytReady=false)';
+    setSeekBarsEnabled(false);
+    return;
+  }
   try{
+    const state = ytPlayer.getPlayerState();
     const dur = ytPlayer.getDuration() || 0;
     const cur = ytPlayer.getCurrentTime() || 0;
+    if(debugEl) debugEl.textContent = `yt: estado=${state} duração=${dur.toFixed(1)}s atual=${cur.toFixed(1)}s`;
+    if(dur <= 0){
+      setSeekBarsEnabled(false);
+      return;
+    }
+    setSeekBarsEnabled(true);
+    if(isSeekingUI) return;
     document.querySelectorAll('.seek-bar').forEach(bar => {
       bar.max = dur;
       bar.value = cur;
     });
     document.querySelectorAll('.time-current').forEach(el => el.textContent = formatTime(cur));
     document.querySelectorAll('.time-duration').forEach(el => el.textContent = formatTime(dur));
-  }catch(e){}
+  }catch(e){
+    if(debugEl) debugEl.textContent = 'yt: erro ao ler player — ' + e.message;
+    setSeekBarsEnabled(false);
+  }
+}
+
+function setSeekBarsEnabled(enabled){
+  document.querySelectorAll('.seek-bar').forEach(bar => { bar.disabled = !enabled; });
+  if(!enabled){
+    document.querySelectorAll('.time-current').forEach(el => el.textContent = '--:--');
+    document.querySelectorAll('.time-duration').forEach(el => el.textContent = '--:--');
+  }
 }
 
 function onSeekStart(){
@@ -904,10 +935,21 @@ function onYouTubeIframeAPIReady(){
     playerVars: { autoplay: 1 },
     events: {
       onReady: () => { ytReady = true; },
-      onStateChange: (e) => { if(e.data === YT.PlayerState.ENDED) playNext(); }
+      onStateChange: (e) => { if(e.data === YT.PlayerState.ENDED) playNext(); },
+      onError: (e) => {
+        const debugEl = document.getElementById('yt-debug');
+        if(debugEl) debugEl.textContent = 'yt: erro no player (código ' + e.data + ')';
+      }
     }
   });
 }
+
+setTimeout(() => {
+  if(!ytReady){
+    const debugEl = document.getElementById('yt-debug');
+    if(debugEl) debugEl.textContent = 'yt: a API do YouTube não respondeu — algo está bloqueando (extensão, bloqueador de anúncios/rastreadores do navegador, ou rede).';
+  }
+}, 8000);
 
 /* ---------- GUEST ---------- */
 
