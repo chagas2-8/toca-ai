@@ -350,7 +350,8 @@
                  onchange="onSeekCommit(event)">
           <span class="mono time-duration">0:00</span>
         </div>
-        <p class="mono" id="yt-debug" style="font-size:10px;color:var(--muted);opacity:.6;margin:-10px 0 14px;">yt: —</p>
+        <p class="mono" id="yt-debug" style="font-size:10px;color:var(--muted);opacity:.6;margin:-10px 0 8px;">yt: —</p>
+        <button class="btn-ghost" onclick="forceReloadCurrent()" style="margin-bottom:14px;">↻ Recarregar player</button>
 
         <div class="row">
           <button class="btn-secondary playpause-btn" onclick="togglePlayPause()">Pausar</button>
@@ -900,13 +901,34 @@ async function skipSong(){ await playNext(); }
 async function togglePlayPause(){
   const room = await loadRoom(currentRoomCode);
   if(!room || !room.current) return;
-  const newPlaying = !room.isPlaying;
+
+  let newPlaying;
   if(ytPlayer && ytReady){
-    if(newPlaying) ytPlayer.playVideo(); else ytPlayer.pauseVideo();
+    const state = ytPlayer.getPlayerState();
+    const actuallyPlaying = (state === 1 || state === 3); // 1=tocando, 3=carregando/buffering
+    newPlaying = !actuallyPlaying;
+    if(newPlaying){
+      ytPlayer.playVideo();
+    }else{
+      ytPlayer.pauseVideo();
+    }
+  }else{
+    newPlaying = !room.isPlaying;
   }
+
   const updated = { ...room, isPlaying: newPlaying };
   await saveRoom(currentRoomCode, updated);
   renderNowPlaying(updated);
+}
+
+function forceReloadCurrent(){
+  if(!ytPlayer || !ytReady) return;
+  loadRoom(currentRoomCode).then(room => {
+    if(room && room.current){
+      ytPlayer.loadVideoById(room.current.videoId);
+      ytPlayer.playVideo();
+    }
+  });
 }
 
 function leaveRoom(){
