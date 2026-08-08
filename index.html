@@ -223,23 +223,23 @@
   }
   body.tv-active:not(.tv-show-video) #tv-cover-stage{ display:block; }
   #tv-cover-stage img{
-    width:100%;height:100%;object-fit:cover;filter:brightness(0.5) saturate(1.15);
+    width:100%;height:100%;object-fit:cover;filter:brightness(0.85) saturate(1.15);
   }
   #tv-cover-stage::after{
     content:'';position:absolute;inset:0;
-    background:radial-gradient(circle at 50% 45%, transparent 0%, rgba(18,15,29,0.55) 85%);
+    background:radial-gradient(circle at 50% 45%, transparent 0%, rgba(18,15,29,0.3) 85%);
   }
   .tv-cover-vinyl{
     position:absolute;top:0;left:0;
     width:min(38vh,260px);height:min(38vh,260px);border-radius:50%;
-    background:repeating-radial-gradient(circle at 50% 50%, #0c0a15 0 2px, #171227 2px 4px);
-    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    background:repeating-radial-gradient(circle at 50% 50%, #2a2540 0 2px, #3a3358 2px 4px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(255,61,129,0.15);
     display:flex;align-items:center;justify-content:center;z-index:1;
     will-change:transform;
   }
   .tv-cover-vinyl-art{
     width:46%;height:46%;border-radius:50%;overflow:hidden;
-    box-shadow:0 0 0 3px rgba(255,255,255,0.08);
+    box-shadow:0 0 0 3px rgba(255,255,255,0.18);
   }
   .tv-cover-vinyl-art img{width:100%;height:100%;object-fit:cover;filter:none;}
 
@@ -940,7 +940,18 @@ function renderNowPlaying(room){
 async function playNext(){
   if(!ytPlayer || !ytReady) return;
   const room = await loadRoom(currentRoomCode);
-  if(!room || room.queue.length === 0) return;
+  if(!room) return;
+
+  if(room.queue.length === 0){
+    if(room.current || room.isPlaying){
+      const cleared = { ...room, current: null, isPlaying: false };
+      await saveRoom(currentRoomCode, cleared);
+      renderHostQueue(cleared);
+      renderNowPlaying(cleared);
+    }
+    return;
+  }
+
   const next = room.queue[0];
   const newQueue = room.queue.slice(1);
   const updated = { ...room, queue: newQueue, current: next, isPlaying: true };
