@@ -240,6 +240,10 @@
     transition:transform .12s ease;line-height:1;
   }
   .reaction-btn:active{transform:scale(0.88);}
+  .reaction-btn-plus{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;
+    color:var(--cyan);border-color:rgba(43,233,200,0.35);
+  }
   .reaction-custom-row{display:none;gap:8px;margin-top:10px;}
   .reaction-custom-row.open{display:flex;}
   #custom-reaction-input{
@@ -438,7 +442,7 @@
         <button class="reaction-btn" onclick="sendReaction('❤️')">❤️</button>
         <button class="reaction-btn" onclick="sendReaction('🙌')">🙌</button>
         <button class="reaction-btn" onclick="sendReaction('💃')">💃</button>
-        <button class="reaction-btn" onclick="toggleCustomReaction()">➕</button>
+        <button class="reaction-btn reaction-btn-plus" onclick="toggleCustomReaction()">+</button>
       </div>
       <div class="reaction-custom-row" id="custom-reaction-row">
         <input type="text" id="custom-reaction-input" placeholder="toque e mude pro teclado de emoji 😀" maxlength="8"
