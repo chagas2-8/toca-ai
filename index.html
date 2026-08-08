@@ -257,17 +257,17 @@
     position:fixed;inset:0;z-index:41;pointer-events:none;overflow:hidden;
   }
   .tv-reaction{
-    position:absolute;bottom:12%;font-size:44px;
-    animation:floatUp 3.2s ease-out forwards;
-    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
-    max-width:min(70vw,420px);text-align:center;white-space:pre-wrap;
+    position:absolute;bottom:12%;font-size:88px;
+    animation:floatUp 3.6s ease-out forwards;
+    filter:drop-shadow(0 6px 18px rgba(0,0,0,0.55));
+    max-width:min(85vw,700px);text-align:center;white-space:pre-wrap;
     word-break:break-word;font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--text);
   }
-  .tv-reaction.tv-reaction-long{ font-size:24px; }
+  .tv-reaction.tv-reaction-long{ font-size:46px; }
   @keyframes floatUp{
     0%{ transform:translateY(0) scale(0.5); opacity:0; }
     12%{ opacity:1; transform:translateY(-30px) scale(1); }
-    100%{ transform:translateY(-460px) scale(1.15); opacity:0; }
+    100%{ transform:translateY(-520px) scale(1.15); opacity:0; }
   }
 
   .tv-corner{
@@ -913,7 +913,7 @@ function spawnReactionEmoji(emoji){
   el.textContent = emoji;
   el.style.left = (30 + Math.random() * 40) + '%';
   layer.appendChild(el);
-  setTimeout(() => el.remove(), 3300);
+  setTimeout(() => el.remove(), 3700);
 }
 
 async function sendReaction(emoji){
